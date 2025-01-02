@@ -1,6 +1,6 @@
 import pygame
 import sys
-import random
+from PIL import Image
 
 # Initialize Pygame
 pygame.init()
@@ -15,15 +15,11 @@ clock = pygame.time.Clock()
 FPS = 60
 
 # Colors
-WHITE = (255, 255, 255)
-BLUE = (135, 206, 235)
-GREEN = (0, 255, 0)
-RED = (255, 0, 0)
 BLACK = (0, 0, 0)
 
 # Mario character properties
-mario_width, mario_height = 50, 50
-mario_x, mario_y = 100, HEIGHT - mario_height - 50
+mario_width, mario_height = 70, 70
+mario_x, mario_y = 100, HEIGHT - mario_height - 107
 mario_speed = 5
 jump_height = 15
 is_jumping = False
@@ -33,26 +29,48 @@ velocity_y = 0
 mario_image = pygame.image.load('mario_image.png')
 mario_image = pygame.transform.scale(mario_image, (mario_width, mario_height))
 
+# Load obstacle image
+obstacle_image = pygame.image.load('cactus.jpeg')
+obstacle_image = pygame.transform.scale(obstacle_image, (60, 60))
+
+# Load and prepare the GIF as an animated background
+gif_path = "background.gif"
+gif = Image.open(gif_path)
+frames = []
+frame_durations = []
+
+# Extract each frame and its duration
+try:
+    while True:
+        frame = gif.copy().convert("RGBA")
+        pygame_frame = pygame.image.fromstring(frame.tobytes(), frame.size, frame.mode)
+        frames.append(pygame.transform.scale(pygame_frame, (WIDTH, HEIGHT)))
+        frame_durations.append(gif.info['duration'] / 1000)  # Convert duration to seconds
+        gif.seek(len(frames))  # Move to the next frame
+except EOFError:
+    pass
+
+# Ensure at least one frame is available
+if not frames:
+    raise ValueError("The GIF has no frames!")
+
+current_frame = 0
+frame_timer = 0
+
 # Gravity
 gravity = 0.8
 
-# Ground properties
-ground_height = 50
-
 # Obstacle properties
-obstacle_width, obstacle_height = 40, 40
+obstacle_width, obstacle_height = 30, 115
 obstacle_x = WIDTH
-obstacle_y = HEIGHT - ground_height - obstacle_height
+obstacle_y = HEIGHT - 50 - obstacle_height
 obstacle_speed = 5
-
-def draw_ground():
-    pygame.draw.rect(screen, GREEN, (0, HEIGHT - ground_height, WIDTH, ground_height))
 
 def draw_mario(x, y):
     screen.blit(mario_image, (x, y))
 
 def draw_obstacle(x, y):
-    pygame.draw.rect(screen, RED, (x, y, obstacle_width, obstacle_height))
+    screen.blit(obstacle_image, (x, y))
 
 def show_game_over():
     font = pygame.font.Font(None, 74)
@@ -65,20 +83,28 @@ def show_game_over():
 def reset_game():
     global mario_x, mario_y, is_jumping, velocity_y, obstacle_x
     mario_x = 100
-    mario_y = HEIGHT - mario_height - ground_height
+    mario_y = HEIGHT - mario_height - 107
     is_jumping = False
     velocity_y = 0
     obstacle_x = WIDTH
 
 def main():
-    global mario_x, mario_y, is_jumping, velocity_y, obstacle_x
+    global mario_x, mario_y, is_jumping, velocity_y, obstacle_x, current_frame, frame_timer
 
     running = True
     game_over = False
 
     while running:
-        screen.fill(BLUE)  # Clear the screen with a sky-blue background
-        draw_ground()
+        dt = clock.tick(FPS) / 1000  # Get the time elapsed since the last frame (in seconds)
+
+        # Update the frame timer for the GIF
+        frame_timer += dt
+        if frame_timer >= frame_durations[current_frame]:
+            frame_timer = 0
+            current_frame = (current_frame + 1) % len(frames)
+
+        # Draw the current background frame
+        screen.blit(frames[current_frame], (0, 0))
 
         if game_over:
             show_game_over()
@@ -91,7 +117,7 @@ def main():
                     reset_game()
         else:
             draw_mario(mario_x, mario_y)
-            draw_obstacle(obstacle_x, obstacle_y)
+            draw_obstacle(obstacle_x, HEIGHT - 50 - obstacle_height)
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -112,8 +138,8 @@ def main():
             if is_jumping:
                 mario_y += velocity_y
                 velocity_y += gravity
-                if mario_y >= HEIGHT - mario_height - ground_height:
-                    mario_y = HEIGHT - mario_height - ground_height
+                if mario_y >= HEIGHT - mario_height - 100:
+                    mario_y = HEIGHT - mario_height - 107
                     is_jumping = False
 
             # Prevent Mario from going out of bounds
@@ -133,7 +159,6 @@ def main():
 
         # Update display
         pygame.display.flip()
-        clock.tick(FPS)
 
 if __name__ == "__main__":
     main()
